@@ -17,13 +17,14 @@ function formatDate(iso) {
 export default function OrdersAdminPage() {
   const context = useApp() || {};
   const orders = context.orders || [];
-  const updateOrderStatus = context.updateOrderStatus || (() => {});
-  const deleteOrder = context.deleteOrder || (() => {});
+  const updateOrderStatus = context.updateOrderStatus || (async () => ({ success: false }));
+  const deleteOrder = context.deleteOrder || (async () => ({ success: false }));
 
   const [filter, setFilter] = useState('Semua');
   const [delConfirm, setDelConfirm] = useState(null);
   const [toast, setToast] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -39,8 +40,12 @@ export default function OrdersAdminPage() {
   const handleStatus = async (id, status) => {
     try {
       setUpdatingId(id);
-      await updateOrderStatus(id, status);
-      showToast(`Status berhasil diperbarui ke "${status}"`);
+      const res = await updateOrderStatus(id, status);
+      if (res?.success) {
+        showToast(`Status berhasil diperbarui ke "${status}"`);
+      } else {
+        showToast(res?.error || 'Gagal memperbarui status pesanan.', 'error');
+      }
     } catch (err) {
       showToast('Gagal memperbarui status pesanan.', 'error');
     } finally {
@@ -50,11 +55,18 @@ export default function OrdersAdminPage() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteOrder(id);
-      setDelConfirm(null);
-      showToast('Pesanan berhasil dihapus!', 'error');
+      setDeletingId(id);
+      const res = await deleteOrder(id);
+      if (res?.success) {
+        setDelConfirm(null);
+        showToast('Pesanan berhasil dihapus!', 'success');
+      } else {
+        showToast(res?.error || 'Gagal menghapus pesanan.', 'error');
+      }
     } catch (err) {
       showToast('Gagal menghapus pesanan.', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -159,11 +171,11 @@ export default function OrdersAdminPage() {
               </thead>
               <tbody>
                 {sorted.map((o, idx) => {
-                  const name = o?.name || o?.customer_name || 'Tanpa Nama';
+                  const name = o?.nama || o?.name || o?.customer_name || 'Tanpa Nama';
                   const email = o?.email || '—';
                   const phone = o?.phone || '—';
-                  const service = o?.service || o?.service_title || '—';
-                  const date = o?.date || o?.event_date || '—';
+                  const service = o?.service || o?.layanan || o?.service_title || '—';
+                  const date = o?.date || o?.tanggal_acara || o?.event_date || '—';
                   const createdAt = o?.createdAt || o?.created_at;
                   const currentStatus = o?.status || 'Pending';
 
@@ -202,7 +214,8 @@ export default function OrdersAdminPage() {
                                 currentStatus === 'Selesai' ? '#4caf7d' : '#e05252',
                               appearance: 'none',
                               cursor: 'pointer',
-                              outline: 'none'
+                              outline: 'none',
+                              opacity: updatingId === o?.id ? 0.5 : 1
                             }}
                           >
                             {STATUS_OPTIONS.map((s) => (
@@ -242,7 +255,7 @@ export default function OrdersAdminPage() {
         )}
       </div>
 
-      {/* Confirm Delete Modal */}
+      {/* Modal Konfirmasi Hapus */}
       {delConfirm && (
         <div 
           onClick={() => setDelConfirm(null)}
@@ -276,12 +289,13 @@ export default function OrdersAdminPage() {
               </button>
             </div>
             <p style={{ color: '#8a94a6', fontSize: '1.3rem', marginBottom: '2rem' }}>
-              Hapus pesanan dari <strong style={{ color: '#fff' }}>{delConfirm?.name || delConfirm?.customer_name || 'Pelanggan'}</strong> untuk layanan{' '}
-              <strong style={{ color: '#d4a843' }}>{delConfirm?.service || delConfirm?.service_title || 'Layanan'}</strong>?
+              Hapus pesanan dari <strong style={{ color: '#fff' }}>{delConfirm?.nama || delConfirm?.name || delConfirm?.customer_name || 'Pelanggan'}</strong> untuk layanan{' '}
+              <strong style={{ color: '#d4a843' }}>{delConfirm?.service || delConfirm?.layanan || delConfirm?.service_title || 'Layanan'}</strong>?
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
               <button 
                 onClick={() => setDelConfirm(null)}
+                disabled={deletingId === delConfirm.id}
                 style={{
                   padding: '0.8rem 1.5rem',
                   borderRadius: '0.8rem',
@@ -295,6 +309,7 @@ export default function OrdersAdminPage() {
               </button>
               <button 
                 onClick={() => handleDelete(delConfirm.id)}
+                disabled={deletingId === delConfirm.id}
                 style={{
                   padding: '0.8rem 1.5rem',
                   borderRadius: '0.8rem',
@@ -305,10 +320,11 @@ export default function OrdersAdminPage() {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.5rem'
+                  gap: '0.5rem',
+                  opacity: deletingId === delConfirm.id ? 0.6 : 1
                 }}
               >
-                <Trash2 size={16} /> Hapus
+                <Trash2 size={16} /> {deletingId === delConfirm.id ? 'Menghapus...' : 'Hapus'}
               </button>
             </div>
           </div>

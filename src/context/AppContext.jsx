@@ -293,6 +293,40 @@ export function AppProvider({ children }) {
         }
     };
 
+    const deleteOrder = async (id) => {
+        try {
+            const { error } = await supabase
+                .from('orders')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            await fetchOrders();
+            return { success: true };
+        } catch (err) {
+            console.error('Gagal menghapus pesanan:', err.message);
+            return { success: false, error: err.message };
+        }
+    };
+
+    const updateOrderStatus = async (id, status) => {
+        try {
+            const { error } = await supabase
+                .from('orders')
+                .update({ status })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            await fetchOrders();
+            return { success: true };
+        } catch (err) {
+            console.error('Gagal memperbarui status pesanan:', err.message);
+            return { success: false, error: err.message };
+        }
+    };
+
     // ── 7. UTILITY FUNCTIONS ──
     const sendWhatsApp = (formData) => {
         const phone = settings?.waNumber || '62895379178780';
@@ -333,6 +367,8 @@ export function AppProvider({ children }) {
             deleteClass,
             addReview,
             addOrder,
+            deleteOrder,
+            updateOrderStatus,
             sendWhatsApp,
             sendClassWhatsApp,
             setSettings
